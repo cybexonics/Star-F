@@ -10,21 +10,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
-
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Eye,
-  Mail,
-  MapPin,
-  Calendar,
-  IndianRupee,
-  ArrowLeft,
-  Loader2,
-} from "lucide-react"
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+
+import { Search, Plus, Edit, Trash2, Eye, ArrowLeft, Loader2 } from "lucide-react"
 
 interface Customer {
   _id: string
@@ -34,14 +29,12 @@ interface Customer {
   address?: string
   notes?: string
   created_at: string
-  updated_at: string
   total_orders: number
   total_spent: number
   outstanding_balance: number
-  bills?: { bill_no_str: string; total: number; status: string }[]
 }
 
-export default function CustomerManagement() {
+export function CustomerManagement() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -62,24 +55,12 @@ export default function CustomerManagement() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [stats, setStats] = useState({
-    total_customers: 0,
-    customers_with_outstanding: 0,
-    total_outstanding_amount: 0,
-  })
-
   const router = useRouter()
   const { toast } = useToast()
 
   // ================== Load Data ==================
   useEffect(() => {
     loadCustomers()
-    loadStats()
-  }, [])
-
-  useEffect(() => {
-    const delay = setTimeout(() => loadCustomers(), 300)
-    return () => clearTimeout(delay)
   }, [searchTerm])
 
   const loadCustomers = async () => {
@@ -95,15 +76,6 @@ export default function CustomerManagement() {
       })
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const loadStats = async () => {
-    try {
-      const res = await customerAPI.getStats()
-      setStats(res)
-    } catch {
-      // ignore silently
     }
   }
 
@@ -127,7 +99,6 @@ export default function CustomerManagement() {
       setNewCustomer({ name: "", phone: "", email: "", address: "", notes: "" })
       setIsAddDialogOpen(false)
       loadCustomers()
-      loadStats()
     } catch (err: any) {
       toast({
         title: "Error",
@@ -171,15 +142,14 @@ export default function CustomerManagement() {
   }
 
   const handleDeleteCustomer = async (id: string) => {
-    if (!confirm("Delete this customer? This will also delete all their bills.")) return
+    if (!confirm("Delete this customer? This will also delete all their bills and jobs.")) return
     try {
-      const res = await customerAPI.delete(id)
+      await customerAPI.delete(id)
       toast({
         title: "Deleted",
-        description: `Removed customer with ${res.deleted_bills || 0} bills.`,
+        description: "Customer removed successfully.",
       })
       loadCustomers()
-      loadStats()
     } catch (err: any) {
       toast({
         title: "Error",
@@ -214,7 +184,9 @@ export default function CustomerManagement() {
   }
 
   const filteredCustomers = customers.filter(
-    (c) => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm),
+    (c) =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.phone.includes(searchTerm),
   )
 
   return (
@@ -248,7 +220,7 @@ export default function CustomerManagement() {
                 <Textarea placeholder="Address" value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
                 <Textarea placeholder="Notes" value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} />
                 <Button onClick={handleAddCustomer} disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                   Add
                 </Button>
               </div>
@@ -265,14 +237,6 @@ export default function CustomerManagement() {
           <Input placeholder="Search by name or phone" className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <Card><CardContent>{stats.total_customers} Customers</CardContent></Card>
-          <Card><CardContent>{stats.customers_with_outstanding} With Outstanding</CardContent></Card>
-          <Card><CardContent>₹{customers.reduce((s, c) => s + (c.total_spent || 0), 0).toLocaleString()} Revenue</CardContent></Card>
-          <Card><CardContent>₹{stats.total_outstanding_amount.toLocaleString()} Outstanding</CardContent></Card>
-        </div>
-
         {/* Customer List */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCustomers.map((c) => (
@@ -285,14 +249,20 @@ export default function CustomerManagement() {
                 )}
               </CardHeader>
               <CardContent>
-                {c.email && <p><Mail className="inline h-3 w-3 mr-1" /> {c.email}</p>}
-                {c.address && <p><MapPin className="inline h-3 w-3 mr-1" /> {c.address}</p>}
-                <p><Calendar className="inline h-3 w-3 mr-1" /> Joined {new Date(c.created_at).toLocaleDateString()}</p>
-                <p><IndianRupee className="inline h-3 w-3 mr-1" /> Spent ₹{c.total_spent.toLocaleString()}</p>
+                {c.email && <p>{c.email}</p>}
+                {c.address && <p>{c.address}</p>}
+                <p>Joined {new Date(c.created_at).toLocaleDateString()}</p>
+                <p>Spent ₹{c.total_spent.toLocaleString()}</p>
                 <div className="mt-3 flex gap-2">
-                  <Button size="sm" onClick={() => handleViewCustomer(c)}><Eye className="h-3 w-3" /></Button>
-                  <Button size="sm" onClick={() => { setEditingCustomer(c); setIsEditDialogOpen(true) }}><Edit className="h-3 w-3" /></Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleDeleteCustomer(c._id)}><Trash2 className="h-3 w-3" /></Button>
+                  <Button size="sm" onClick={() => handleViewCustomer(c)}>
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" onClick={() => { setEditingCustomer(c); setIsEditDialogOpen(true) }}>
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => handleDeleteCustomer(c._id)}>
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -312,7 +282,7 @@ export default function CustomerManagement() {
               <Textarea value={editingCustomer.address || ""} onChange={(e) => setEditingCustomer({ ...editingCustomer, address: e.target.value })} />
               <Textarea value={editingCustomer.notes || ""} onChange={(e) => setEditingCustomer({ ...editingCustomer, notes: e.target.value })} />
               <Button onClick={handleEditCustomer} disabled={isSubmitting}>
-                {isSubmitting && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
+                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                 Update
               </Button>
             </div>
@@ -332,18 +302,6 @@ export default function CustomerManagement() {
               <p>Total Orders: {selectedCustomer.total_orders}</p>
               <p>Total Spent: ₹{selectedCustomer.total_spent.toLocaleString()}</p>
               <p>Outstanding: ₹{selectedCustomer.outstanding_balance.toLocaleString()}</p>
-              {selectedCustomer.bills && selectedCustomer.bills.length > 0 && (
-                <div className="mt-3">
-                  <h3 className="font-semibold">Bills</h3>
-                  <ul className="list-disc pl-5">
-                    {selectedCustomer.bills.map((b, idx) => (
-                      <li key={idx}>
-                        #{b.bill_no_str} - ₹{b.total} ({b.status})
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           )}
         </DialogContent>
