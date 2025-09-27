@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
@@ -26,7 +25,6 @@ import {
   Edit,
   Trash2,
   Eye,
-  Phone,
   Mail,
   MapPin,
   Calendar,
@@ -50,7 +48,8 @@ interface Customer {
   bills?: any[]
 }
 
-export default function CustomerManagement() {
+// ✅ Changed to named export
+export function CustomerManagement() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
