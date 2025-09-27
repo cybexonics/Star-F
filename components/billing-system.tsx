@@ -1,154 +1,110 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Plus, Trash2, Printer, Calculator, Loader2, Pen, Eraser } from "lucide-react"
 import { api } from "@/lib/api"
 
-// --- keep your interfaces and ITEM_TYPES as they were ---
+// Interfaces
+interface BillItem {
+  name: string
+  quantity: number
+  price: number
+}
+
+interface Bill {
+  _id: string
+  billNoStr: string
+  customerId: string
+  customerName: string
+  items: BillItem[]
+  total: number
+  balance: number
+  createdDate: string
+  status: string
+  qr_code?: string
+}
 
 export function BillingSystem() {
-  const [currentBill, setCurrentBill] = useState<any>(null)
+  const { toast } = useToast()
+
+  // States
   const [showBillPreview, setShowBillPreview] = useState(false)
-  const [upiId, setUpiId] = useState<string>("raghukatti9912-1@okhdfcbank")
+  const [currentBill, setCurrentBill] = useState<Bill | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  // ✅ fetch UPI settings from backend
-  useEffect(() => {
-    const fetchUpi = async () => {
-      try {
-        const res = await api.get("/api/settings/upi")
-        if (res?.upi_id) {
-          setUpiId(res.upi_id)
-        }
-      } catch (err) {
-        console.error("Failed to fetch UPI settings", err)
-      }
-    }
-    fetchUpi()
-  }, [])
-
-  // --- keep your form states, helpers, and bill generation logic as before ---
-
+  // Example: creating a bill (called when admin submits)
   const generateBill = async () => {
-    // call your backend as before:
-    const billResponse = await api.post("/api/bills", { /* payload */ })
-    const created = billResponse.bill || billResponse
+    try {
+      setLoading(true)
 
-    const billNoStr =
-      created?.bill_no_str ||
-      created?.billNoStr ||
-      (created?.bill_no != null ? String(created.bill_no).padStart(3, "0") : undefined)
+      // Example payload, adjust as per your form
+      const payload = {
+        customer_id: "some-customer-id",
+        items: [{ name: "Blouse", quantity: 1, price: 500 }],
+        total: 500,
+      }
 
-    const bill = {
-      ...created,
-      billNoStr,
-      createdDate: new Date().toISOString().split("T")[0],
-      balance: created?.balance || created?.total || 0,
-      qr_code: created?.qr_code || null,
+      const res = await api.post("/bills", payload)
+      const created = res.data.bill
+
+      const bill: Bill = {
+        _id: created._id,
+        billNoStr: created.bill_no_str,
+        customerId: created.customer_id,
+        customerName: "Demo Customer",
+        items: created.items,
+        total: created.total,
+        balance: created.total, // assuming unpaid
+        createdDate: created.created_at,
+        status: created.status,
+        qr_code: created.qr_code, // ✅ backend sends QR
+      }
+
+      setCurrentBill(bill)
+      setShowBillPreview(true)
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to generate bill", variant: "destructive" })
+    } finally {
+      setLoading(false)
     }
-
-    setCurrentBill(bill)
-    setShowBillPreview(true)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50 overflow-hidden">
-      {/* --- keep your header, form, and bill creation UI unchanged --- */}
+    <div className="min-h-screen p-6">
+      <h1 className="text-xl font-bold mb-4">Billing System</h1>
+      <Button onClick={generateBill} disabled={loading}>
+        {loading ? "Generating..." : "Generate Bill"}
+      </Button>
 
-      {/* ✅ Bill Preview */}
+      {/* Bill Preview Dialog */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Bill Preview</DialogTitle>
             <DialogDescription>Review and print the bill</DialogDescription>
           </DialogHeader>
 
           {currentBill && (
-            <div className="bill-content print:text-black" id="bill-content">
-              <div className="border border-gray-300 print:border-black">
-                <div className="grid grid-cols-2 divide-x divide-gray-300 print:divide-black">
-                  {/* Tailor Copy */}
-                  <div className="p-3">
-                    <div className="text-center border-b pb-2 mb-2">
-                      <h2 className="text-xl font-bold">{businessName}</h2>
-                      <p className="text-xs">EXCLUSIVE LADIES & CUSTOM TAILOR</p>
-                      <p className="text-xs">{businessAddress}</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                      <div className="border p-2 text-center">
-                        <div className="font-semibold">{currentBill.billNoStr}</div>
-                        <div className="text-[10px]">Bill No</div>
-                      </div>
-                      <div className="border p-2 text-center">
-                        <div className="font-semibold">
-                          {new Date(currentBill.createdDate).toLocaleDateString()}
-                        </div>
-                        <div className="text-[10px]">Date</div>
-                      </div>
-                      <div className="border p-2 text-center">
-                        <div className="font-semibold">
-                          {currentBill.items?.reduce((s: number, i: any) => s + (Number(i.quantity) || 0), 0)}
-                        </div>
-                        <div className="text-[10px]">Qty</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Customer Copy */}
-                  <div className="p-3">
-                    <div className="text-center border-b pb-2 mb-2">
-                      <h2 className="text-xl font-bold">{businessName}</h2>
-                      <p className="text-xs">EXCLUSIVE LADIES & CUSTOM TAILOR</p>
-                      <p className="text-xs">{businessAddress}</p>
-                      <div className="mt-1 text-right text-xs">
-                        CASH MEMO<br />
-                        Bill No - <span className="font-semibold">{currentBill.billNoStr}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ✅ Payment QR + Link */}
-                {currentBill.balance > 0 && (
-                  <div className="border p-3 mb-2">
-                    <div className="text-center text-xs mb-2">Scan to Pay Balance Amount</div>
-                    <div className="flex items-center justify-center">
-                      {currentBill.qr_code ? (
-                        <img
-                          src={currentBill.qr_code}
-                          alt="Payment QR Code"
-                          className="w-28 h-28 border"
-                        />
-                      ) : (
-                        <p className="text-xs">QR code not available</p>
-                      )}
-                    </div>
-                    <div className="text-center text-xs mt-2">
-                      <div className="font-semibold">UPI Payment</div>
-                      <div>₹{currentBill.balance.toFixed(2)}</div>
-                      <div>UPI: {upiId}</div>
-                      <div>Order #{currentBill.billNoStr}</div>
-                    </div>
-                    <div className="text-center mt-2">
-                      <a
-                        href={`upi://pay?pa=${upiId}&pn=MyShop&am=${currentBill.balance}&cu=INR`}
-                        className="text-blue-600 underline"
-                      >
-                        Pay Now via UPI
-                      </a>
-                    </div>
-                  </div>
-                )}
+            <div className="space-y-4">
+              <div className="border p-3">
+                <p><strong>Bill No:</strong> {currentBill.billNoStr}</p>
+                <p><strong>Date:</strong> {new Date(currentBill.createdDate).toLocaleDateString()}</p>
+                <p><strong>Total:</strong> ₹{currentBill.total}</p>
+                <p><strong>Status:</strong> {currentBill.status}</p>
               </div>
+
+              {currentBill.qr_code && (
+                <div className="text-center">
+                  <p className="mb-2 text-sm">Scan to Pay</p>
+                  <img
+                    src={currentBill.qr_code}
+                    alt="UPI QR"
+                    className="w-32 h-32 mx-auto border"
+                  />
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
