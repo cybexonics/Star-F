@@ -29,6 +29,8 @@ interface Bill {
 export default function BillingSystem() {
   const [bills, setBills] = useState<Bill[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  // ✅ FIX: added state for preview
   const [showBillPreview, setShowBillPreview] = useState(false)
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
 
@@ -75,7 +77,12 @@ export default function BillingSystem() {
       <header className="bg-white/80 backdrop-blur border-b border-violet-100">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4">
           <div className="flex items-center">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/admin")} className="hover:bg-violet-100">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/admin")}
+              className="hover:bg-violet-100"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" /> Back
             </Button>
             <h1 className="ml-4 text-xl font-semibold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
