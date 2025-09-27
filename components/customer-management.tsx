@@ -48,7 +48,6 @@ interface Customer {
   bills?: any[]
 }
 
-// ✅ Changed to named export
 export function CustomerManagement() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [searchTerm, setSearchTerm] = useState("")
