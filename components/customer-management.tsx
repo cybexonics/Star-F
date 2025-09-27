@@ -10,14 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
 
 import {
   Search,
@@ -45,10 +38,10 @@ interface Customer {
   total_orders: number
   total_spent: number
   outstanding_balance: number
-  bills?: any[]
+  bills?: { bill_no_str: string; total: number; status: string }[]
 }
 
-export function CustomerManagement() {
+export default function CustomerManagement() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
@@ -85,9 +78,7 @@ export function CustomerManagement() {
   }, [])
 
   useEffect(() => {
-    const delay = setTimeout(() => {
-      loadCustomers()
-    }, 300)
+    const delay = setTimeout(() => loadCustomers(), 300)
     return () => clearTimeout(delay)
   }, [searchTerm])
 
@@ -111,8 +102,8 @@ export function CustomerManagement() {
     try {
       const res = await customerAPI.getStats()
       setStats(res)
-    } catch (err) {
-      console.error("Failed to load stats", err)
+    } catch {
+      // ignore silently
     }
   }
 
@@ -180,12 +171,12 @@ export function CustomerManagement() {
   }
 
   const handleDeleteCustomer = async (id: string) => {
-    if (!confirm("Delete this customer? This will also delete all their bills and jobs.")) return
+    if (!confirm("Delete this customer? This will also delete all their bills.")) return
     try {
       const res = await customerAPI.delete(id)
       toast({
         title: "Deleted",
-        description: `Removed customer with ${res.deleted_bills || 0} bill(s) and ${res.deleted_jobs || 0} job(s).`,
+        description: `Removed customer with ${res.deleted_bills || 0} bills.`,
       })
       loadCustomers()
       loadStats()
@@ -251,33 +242,13 @@ export function CustomerManagement() {
                 <DialogDescription>Enter customer details</DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
-                <Input
-                  placeholder="Name"
-                  value={newCustomer.name}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                />
-                <Input
-                  placeholder="Phone"
-                  value={newCustomer.phone}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                />
-                <Input
-                  placeholder="Email"
-                  value={newCustomer.email}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                />
-                <Textarea
-                  placeholder="Address"
-                  value={newCustomer.address}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
-                />
-                <Textarea
-                  placeholder="Notes"
-                  value={newCustomer.notes}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })}
-                />
+                <Input placeholder="Name" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} />
+                <Input placeholder="Phone" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} />
+                <Input placeholder="Email" value={newCustomer.email} onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })} />
+                <Textarea placeholder="Address" value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} />
+                <Textarea placeholder="Notes" value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} />
                 <Button onClick={handleAddCustomer} disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                  {isSubmitting && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
                   Add
                 </Button>
               </div>
@@ -291,12 +262,7 @@ export function CustomerManagement() {
         {/* Search */}
         <div className="mb-6 relative">
           <Search className="absolute left-3 top-3 text-violet-400 h-4 w-4" />
-          <Input
-            placeholder="Search by name or phone"
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          <Input placeholder="Search by name or phone" className="pl-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
         </div>
 
         {/* Stats */}
@@ -346,7 +312,7 @@ export function CustomerManagement() {
               <Textarea value={editingCustomer.address || ""} onChange={(e) => setEditingCustomer({ ...editingCustomer, address: e.target.value })} />
               <Textarea value={editingCustomer.notes || ""} onChange={(e) => setEditingCustomer({ ...editingCustomer, notes: e.target.value })} />
               <Button onClick={handleEditCustomer} disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                {isSubmitting && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
                 Update
               </Button>
             </div>
@@ -366,6 +332,18 @@ export function CustomerManagement() {
               <p>Total Orders: {selectedCustomer.total_orders}</p>
               <p>Total Spent: ₹{selectedCustomer.total_spent.toLocaleString()}</p>
               <p>Outstanding: ₹{selectedCustomer.outstanding_balance.toLocaleString()}</p>
+              {selectedCustomer.bills && selectedCustomer.bills.length > 0 && (
+                <div className="mt-3">
+                  <h3 className="font-semibold">Bills</h3>
+                  <ul className="list-disc pl-5">
+                    {selectedCustomer.bills.map((b, idx) => (
+                      <li key={idx}>
+                        #{b.bill_no_str} - ₹{b.total} ({b.status})
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
