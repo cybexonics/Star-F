@@ -1,108 +1,150 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useRouter } from "next/navigation"
+import { billAPI } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import { api } from "@/lib/api"
 
-// Interfaces
-interface BillItem {
-  name: string
-  quantity: number
-  price: number
-}
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+
+import { Plus, Eye, Loader2, ArrowLeft } from "lucide-react"
 
 interface Bill {
   _id: string
-  billNoStr: string
-  customerId: string
-  customerName: string
-  items: BillItem[]
+  bill_number: number
+  bill_no_str: string
+  customer_id: string
+  items: { name: string; price: number; qty: number }[]
+  subtotal: number
   total: number
-  balance: number
-  createdDate: string
+  created_at: string
   status: string
   qr_code?: string
 }
 
-export function BillingSystem() {
+export default function BillingSystem() {
+  const [bills, setBills] = useState<Bill[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showBillPreview, setShowBillPreview] = useState(false)
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
+
+  const router = useRouter()
   const { toast } = useToast()
 
-  // States
-  const [showBillPreview, setShowBillPreview] = useState(false)
-  const [currentBill, setCurrentBill] = useState<Bill | null>(null)
-  const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    loadBills()
+  }, [])
 
-  // Example: creating a bill (called when admin submits)
-  const generateBill = async () => {
+  const loadBills = async () => {
     try {
-      setLoading(true)
-
-      // Example payload, adjust as per your form
-      const payload = {
-        customer_id: "some-customer-id",
-        items: [{ name: "Blouse", quantity: 1, price: 500 }],
-        total: 500,
-      }
-
-      const res = await api.post("/bills", payload)
-      const created = res.data.bill
-
-      const bill: Bill = {
-        _id: created._id,
-        billNoStr: created.bill_no_str,
-        customerId: created.customer_id,
-        customerName: "Demo Customer",
-        items: created.items,
-        total: created.total,
-        balance: created.total, // assuming unpaid
-        createdDate: created.created_at,
-        status: created.status,
-        qr_code: created.qr_code, // ✅ backend sends QR
-      }
-
-      setCurrentBill(bill)
-      setShowBillPreview(true)
-    } catch (err) {
-      toast({ title: "Error", description: "Failed to generate bill", variant: "destructive" })
+      setIsLoading(true)
+      const res = await billAPI.getAll()
+      setBills(res.bills || [])
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to load bills",
+        variant: "destructive",
+      })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  return (
-    <div className="min-h-screen p-6">
-      <h1 className="text-xl font-bold mb-4">Billing System</h1>
-      <Button onClick={generateBill} disabled={loading}>
-        {loading ? "Generating..." : "Generate Bill"}
-      </Button>
+  const handleViewBill = (bill: Bill) => {
+    setSelectedBill(bill)
+    setShowBillPreview(true)
+  }
 
-      {/* Bill Preview Dialog */}
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-violet-600" />
+        <span className="ml-2 text-gray-600">Loading bills...</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur border-b border-violet-100">
+        <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-4">
+          <div className="flex items-center">
+            <Button variant="ghost" size="sm" onClick={() => router.push("/admin")} className="hover:bg-violet-100">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <h1 className="ml-4 text-xl font-semibold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+              Billing
+            </h1>
+          </div>
+          <Button className="bg-gradient-to-r from-violet-600 to-purple-600 text-white">
+            <Plus className="h-4 w-4 mr-2" /> New Bill
+          </Button>
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>All Bills</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>No</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bills.map((b) => (
+                  <TableRow key={b._id}>
+                    <TableCell>{b.bill_no_str}</TableCell>
+                    <TableCell>₹{b.total.toLocaleString()}</TableCell>
+                    <TableCell>{b.status}</TableCell>
+                    <TableCell>{new Date(b.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Button size="sm" onClick={() => handleViewBill(b)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </main>
+
+      {/* Bill Preview */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Bill Preview</DialogTitle>
-            <DialogDescription>Review and print the bill</DialogDescription>
           </DialogHeader>
-
-          {currentBill && (
-            <div className="space-y-4">
-              <div className="border p-3">
-                <p><strong>Bill No:</strong> {currentBill.billNoStr}</p>
-                <p><strong>Date:</strong> {new Date(currentBill.createdDate).toLocaleDateString()}</p>
-                <p><strong>Total:</strong> ₹{currentBill.total}</p>
-                <p><strong>Status:</strong> {currentBill.status}</p>
-              </div>
-
-              {currentBill.qr_code && (
-                <div className="text-center">
-                  <p className="mb-2 text-sm">Scan to Pay</p>
-                  <img
-                    src={currentBill.qr_code}
-                    alt="UPI QR"
-                    className="w-32 h-32 mx-auto border"
-                  />
+          {selectedBill && (
+            <div className="space-y-3">
+              <p>
+                <strong>Bill No:</strong> {selectedBill.bill_no_str}
+              </p>
+              <p>
+                <strong>Total:</strong> ₹{selectedBill.total.toLocaleString()}
+              </p>
+              <p>
+                <strong>Status:</strong> {selectedBill.status}
+              </p>
+              {selectedBill.qr_code && (
+                <div className="mt-3">
+                  <img src={selectedBill.qr_code} alt="UPI QR" className="w-40 h-40" />
                 </div>
               )}
             </div>
