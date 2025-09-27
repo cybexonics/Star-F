@@ -2,23 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { billAPI, customerAPI } from "@/lib/api"
+import { billAPI } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
-import { Plus, Eye, ArrowLeft, Loader2 } from "lucide-react"
-
-interface Customer {
-  _id: string
-  name: string
-  phone: string
-}
+import { Plus, Eye, Loader2, ArrowLeft } from "lucide-react"
 
 interface Bill {
   _id: string
@@ -33,28 +26,19 @@ interface Bill {
   qr_code?: string
 }
 
-export default function BillingSystem() {
+export function BillingSystem() {
   const [bills, setBills] = useState<Bill[]>([])
-  const [customers, setCustomers] = useState<Customer[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  // ✅ Fix: we always define these
   const [showBillPreview, setShowBillPreview] = useState(false)
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null)
-
-  // Add bill dialog
-  const [isNewBillOpen, setIsNewBillOpen] = useState(false)
-  const [newBill, setNewBill] = useState({
-    customer_id: "",
-    items: [{ name: "", price: 0, qty: 1 }],
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const router = useRouter()
   const { toast } = useToast()
 
-  // ================== Load Data ==================
   useEffect(() => {
     loadBills()
-    loadCustomers()
   }, [])
 
   const loadBills = async () => {
@@ -73,60 +57,14 @@ export default function BillingSystem() {
     }
   }
 
-  const loadCustomers = async () => {
-    try {
-      const res = await customerAPI.getAll({})
-      setCustomers(res.customers || [])
-    } catch {
-      // ignore silently
-    }
-  }
-
-  // ================== Handlers ==================
   const handleViewBill = (bill: Bill) => {
     setSelectedBill(bill)
     setShowBillPreview(true)
   }
 
-  const handleAddBill = async () => {
-    if (!newBill.customer_id || newBill.items.length === 0) {
-      toast({
-        title: "Validation Error",
-        description: "Please select a customer and add at least one item",
-        variant: "destructive",
-      })
-      return
-    }
-    try {
-      setIsSubmitting(true)
-      const subtotal = newBill.items.reduce((s, i) => s + i.price * i.qty, 0)
-      const res = await billAPI.create({
-        ...newBill,
-        subtotal,
-        total: subtotal,
-      })
-      toast({
-        title: "Success",
-        description: `Bill #${res.bill.bill_no_str} created successfully`,
-      })
-      setIsNewBillOpen(false)
-      setNewBill({ customer_id: "", items: [{ name: "", price: 0, qty: 1 }] })
-      loadBills()
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Failed to create bill",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // ================== Render ==================
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50">
         <Loader2 className="h-6 w-6 animate-spin text-violet-600" />
         <span className="ml-2 text-gray-600">Loading bills...</span>
       </div>
@@ -146,16 +84,13 @@ export default function BillingSystem() {
               Billing
             </h1>
           </div>
-          <Button
-            className="bg-gradient-to-r from-violet-600 to-purple-600 text-white"
-            onClick={() => setIsNewBillOpen(true)}
-          >
+          <Button className="bg-gradient-to-r from-violet-600 to-purple-600 text-white">
             <Plus className="h-4 w-4 mr-2" /> New Bill
           </Button>
         </div>
       </header>
 
-      {/* Bills Table */}
+      {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         <Card>
           <CardHeader>
@@ -166,7 +101,6 @@ export default function BillingSystem() {
               <TableHeader>
                 <TableRow>
                   <TableHead>No</TableHead>
-                  <TableHead>Customer</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
@@ -177,7 +111,6 @@ export default function BillingSystem() {
                 {bills.map((b) => (
                   <TableRow key={b._id}>
                     <TableCell>{b.bill_no_str}</TableCell>
-                    <TableCell>{customers.find((c) => c._id === b.customer_id)?.name || "N/A"}</TableCell>
                     <TableCell>₹{b.total.toLocaleString()}</TableCell>
                     <TableCell>{b.status}</TableCell>
                     <TableCell>{new Date(b.created_at).toLocaleDateString()}</TableCell>
@@ -202,83 +135,24 @@ export default function BillingSystem() {
           </DialogHeader>
           {selectedBill && (
             <div className="space-y-3">
-              <p><strong>Bill No:</strong> {selectedBill.bill_no_str}</p>
-              <p><strong>Total:</strong> ₹{selectedBill.total.toLocaleString()}</p>
-              <p><strong>Status:</strong> {selectedBill.status}</p>
+              <p>
+                <strong>Bill No:</strong> {selectedBill.bill_no_str}
+              </p>
+              <p>
+                <strong>Total:</strong> ₹{selectedBill.total.toLocaleString()}
+              </p>
+              <p>
+                <strong>Status:</strong> {selectedBill.status}
+              </p>
+              {/* ✅ Fix: show QR code only if available */}
               {selectedBill.qr_code && (
-                <div className="mt-3">
-                  <img src={selectedBill.qr_code} alt="UPI QR" className="w-40 h-40" />
+                <div className="mt-3 text-center">
+                  <img src={selectedBill.qr_code} alt="UPI QR" className="w-40 h-40 mx-auto border" />
+                  <p className="text-xs mt-2">Scan & Pay</p>
                 </div>
               )}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* New Bill Dialog */}
-      <Dialog open={isNewBillOpen} onOpenChange={setIsNewBillOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Bill</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <select
-              className="w-full border rounded p-2"
-              value={newBill.customer_id}
-              onChange={(e) => setNewBill({ ...newBill, customer_id: e.target.value })}
-            >
-              <option value="">Select Customer</option>
-              {customers.map((c) => (
-                <option key={c._id} value={c._id}>{c.name} ({c.phone})</option>
-              ))}
-            </select>
-
-            {newBill.items.map((item, idx) => (
-              <div key={idx} className="flex gap-2">
-                <Input
-                  placeholder="Item name"
-                  value={item.name}
-                  onChange={(e) => {
-                    const updated = [...newBill.items]
-                    updated[idx].name = e.target.value
-                    setNewBill({ ...newBill, items: updated })
-                  }}
-                />
-                <Input
-                  type="number"
-                  placeholder="Price"
-                  value={item.price}
-                  onChange={(e) => {
-                    const updated = [...newBill.items]
-                    updated[idx].price = parseFloat(e.target.value) || 0
-                    setNewBill({ ...newBill, items: updated })
-                  }}
-                />
-                <Input
-                  type="number"
-                  placeholder="Qty"
-                  value={item.qty}
-                  onChange={(e) => {
-                    const updated = [...newBill.items]
-                    updated[idx].qty = parseInt(e.target.value) || 1
-                    setNewBill({ ...newBill, items: updated })
-                  }}
-                />
-              </div>
-            ))}
-
-            <Button
-              onClick={() => setNewBill({ ...newBill, items: [...newBill.items, { name: "", price: 0, qty: 1 }] })}
-              variant="outline"
-            >
-              + Add Item
-            </Button>
-
-            <Button onClick={handleAddBill} disabled={isSubmitting}>
-              {isSubmitting && <Loader2 className="animate-spin h-4 w-4 mr-2" />}
-              Create Bill
-            </Button>
-          </div>
         </DialogContent>
       </Dialog>
     </div>
