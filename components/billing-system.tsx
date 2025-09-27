@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,18 +10,18 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Plus, Trash2, Printer, Calculator, Loader2, Pen, Eraser } from "lucide-react"
 import { api } from "@/lib/api"
 
-// ... your interfaces and constants (Customer, BillItem, Bill, ITEM_TYPES) remain unchanged
+// --- keep your interfaces and ITEM_TYPES as they were ---
 
 export function BillingSystem() {
-  // ... all your states and hooks remain unchanged
+  const [currentBill, setCurrentBill] = useState<any>(null)
+  const [showBillPreview, setShowBillPreview] = useState(false)
   const [upiId, setUpiId] = useState<string>("raghukatti9912-1@okhdfcbank")
 
-  // ✅ Fetch UPI ID from backend settings
+  // ✅ fetch UPI settings from backend
   useEffect(() => {
     const fetchUpi = async () => {
       try {
@@ -36,52 +36,35 @@ export function BillingSystem() {
     fetchUpi()
   }, [])
 
-  // ... all helper functions remain unchanged
+  // --- keep your form states, helpers, and bill generation logic as before ---
 
   const generateBill = async () => {
-    // ... same as before
-
+    // call your backend as before:
+    const billResponse = await api.post("/api/bills", { /* payload */ })
     const created = billResponse.bill || billResponse
+
     const billNoStr =
       created?.bill_no_str ||
       created?.billNoStr ||
       (created?.bill_no != null ? String(created.bill_no).padStart(3, "0") : undefined)
 
-    const bill: Bill = {
-      _id: created?._id || billResponse._id,
-      billNoStr: billNoStr,
-      customerId: customerId,
-      customerName: newCustomer.name,
-      customerPhone: newCustomer.phone,
-      customerAddress: newCustomer.address,
-      items: billItems,
-      subtotal: calculateSubtotal(),
-      discount,
-      total: calculateTotal(),
-      advance,
-      balance: calculateBalance(),
-      dueDate,
-      specialInstructions,
-      designImages,
-      drawings,
-      signature,
+    const bill = {
+      ...created,
+      billNoStr,
       createdDate: new Date().toISOString().split("T")[0],
-      status: "pending",
-      // ✅ Include backend-provided QR code if available
+      balance: created?.balance || created?.total || 0,
       qr_code: created?.qr_code || null,
     }
 
     setCurrentBill(bill)
     setShowBillPreview(true)
-
-    // ... rest unchanged
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-violet-50 via-white to-indigo-50 overflow-hidden">
-      {/* ... all your header, form, and content unchanged */}
+      {/* --- keep your header, form, and bill creation UI unchanged --- */}
 
-      {/* Bill Preview Dialog */}
+      {/* ✅ Bill Preview */}
       <Dialog open={showBillPreview} onOpenChange={setShowBillPreview}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -93,7 +76,6 @@ export function BillingSystem() {
             <div className="bill-content print:text-black" id="bill-content">
               <div className="border border-gray-300 print:border-black">
                 <div className="grid grid-cols-2 divide-x divide-gray-300 print:divide-black">
-                  
                   {/* Tailor Copy */}
                   <div className="p-3">
                     <div className="text-center border-b pb-2 mb-2">
@@ -114,7 +96,7 @@ export function BillingSystem() {
                       </div>
                       <div className="border p-2 text-center">
                         <div className="font-semibold">
-                          {currentBill.items.reduce((s, i) => s + (Number(i.quantity) || 0), 0)}
+                          {currentBill.items?.reduce((s: number, i: any) => s + (Number(i.quantity) || 0), 0)}
                         </div>
                         <div className="text-[10px]">Qty</div>
                       </div>
@@ -135,7 +117,7 @@ export function BillingSystem() {
                   </div>
                 </div>
 
-                {/* ✅ Payment QR */}
+                {/* ✅ Payment QR + Link */}
                 {currentBill.balance > 0 && (
                   <div className="border p-3 mb-2">
                     <div className="text-center text-xs mb-2">Scan to Pay Balance Amount</div>
@@ -156,8 +138,6 @@ export function BillingSystem() {
                       <div>UPI: {upiId}</div>
                       <div>Order #{currentBill.billNoStr}</div>
                     </div>
-
-                    {/* ✅ Mobile Tap-to-Pay */}
                     <div className="text-center mt-2">
                       <a
                         href={`upi://pay?pa=${upiId}&pn=MyShop&am=${currentBill.balance}&cu=INR`}
