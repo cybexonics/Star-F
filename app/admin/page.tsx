@@ -1,7 +1,5 @@
-import { AdminDashboard } from "@/components/admin-dashboard"
+import { CustomerManagement } from "@/components/customer-management"
 
-export default function AdminPage() {
-  return (
-    <AdminDashboard />
-  )
+export default function CustomersPage() {
+  return <CustomerManagement />
 }
